@@ -1,36 +1,42 @@
-import os
 import requests
 import zipfile
-import shutil
+import os
 
-GITHUB_REPO = 'https://github.com/DEIN_NUTZERNAME/DEIN_REPOSITORY'
-ZIP_URL = f'{GITHUB_REPO}/archive/refs/heads/main.zip'
-EXTRACT_TO = 'update_temp'
+GITHUB_REPO = 'https://github.com/RapChapter/Browser'
+DOWNLOAD_URL = f'{GITHUB_REPO}/archive/refs/heads/main.zip'
+EXTRACT_TO = 'Browser-update'
+ZIP_FILE = 'update.zip'
 
-def download_and_extract_zip(url, extract_to):
-    response = requests.get(url)
+def download_update():
+    response = requests.get(DOWNLOAD_URL, stream=True)
     response.raise_for_status()
-    with open('update.zip', 'wb') as file:
-        file.write(response.content)
+    
+    with open(ZIP_FILE, 'wb') as file:
+        for chunk in response.iter_content(chunk_size=8192):
+            file.write(chunk)
 
-    with zipfile.ZipFile('update.zip', 'r') as zip_ref:
-        zip_ref.extractall(extract_to)
+def extract_update():
+    with zipfile.ZipFile(ZIP_FILE, 'r') as zip_ref:
+        zip_ref.extractall(EXTRACT_TO)
 
-    os.remove('update.zip')
+def replace_files():
+    # Sicherstellen, dass die alten Dateien gesichert oder gelöscht werden
+    if os.path.exists('backup'):
+        os.rmdir('backup')
+    os.rename('Browser.py', 'backup/Browser.py')
+    
+    # Kopiere neue Dateien
+    os.rename(f'{EXTRACT_TO}/Browser-main/Browser.py', 'Browser.py')
 
-def replace_files(source, destination):
-    for item in os.listdir(source):
-        s = os.path.join(source, item)
-        d = os.path.join(destination, item)
-        if os.path.isdir(s):
-            if os.path.exists(d):
-                shutil.rmtree(d)
-            shutil.copytree(s, d)
-        else:
-            shutil.copy2(s, d)
+def cleanup():
+    os.remove(ZIP_FILE)
+    os.rmdir(EXTRACT_TO)
+
+def main():
+    download_update()
+    extract_update()
+    replace_files()
+    cleanup()
 
 if __name__ == '__main__':
-    download_and_extract_zip(ZIP_URL, EXTRACT_TO)
-    replace_files(EXTRACT_TO, '.')
-    shutil.rmtree(EXTRACT_TO)
-    print('Update abgeschlossen. Starte den Browser neu.')
+    main()
