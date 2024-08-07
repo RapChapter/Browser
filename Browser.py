@@ -1,7 +1,15 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QToolBar, QLineEdit, QTabWidget, QToolButton, QAction, QPushButton
+import os
+import requests
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QToolBar, QLineEdit, QTabWidget, QToolButton, QAction, QPushButton, QLabel
 from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
+
+GITHUB_REPO = 'https://github.com/RapChapter/Browser'
+LOCAL_VERSION_FILE = 'version.txt'
+REMOTE_VERSION_FILE = f'{GITHUB_REPO}/raw/main/version.txt'
+UPDATE_SCRIPT = 'update.py'
+CURRENT_VERSION = '0.9.9'
 
 class Browser(QMainWindow):
     def __init__(self):
@@ -72,6 +80,12 @@ class Browser(QMainWindow):
         self.bookmarks = ['https://www.google.com']
         self.load_bookmarks()
 
+        # Versionsanzeige
+        self.version_label = QLabel(f'Version: {CURRENT_VERSION}')
+        self.toolbar.addWidget(self.version_label)
+
+        self.check_for_updates()
+
     def navigate_home(self):
         self.browser.setUrl(QUrl('https://www.google.com'))
 
@@ -109,7 +123,35 @@ class Browser(QMainWindow):
             bookmark_action.triggered.connect(lambda checked, url=bookmark: self.browser.setUrl(QUrl(url)))
             self.bookmarks_bar.addAction(bookmark_action)
 
+    def check_for_updates(self):
+        try:
+            local_version = self.read_local_version()
+            remote_version = self.fetch_remote_version()
+            if self.is_newer_version(remote_version, local_version):
+                self.update_browser()
+        except Exception as e:
+            print(f'Fehler bei der Überprüfung auf Updates: {e}')
+
+    def read_local_version(self):
+        with open(LOCAL_VERSION_FILE, 'r') as file:
+            return file.read().strip()
+
+    def fetch_remote_version(self):
+        response = requests.get(REMOTE_VERSION_FILE)
+        response.raise_for_status()
+        return response.text.strip()
+
+    def is_newer_version(self, remote_version, local_version):
+        return remote_version > local_version
+
+    def update_browser(self):
+        os.system(f'python {UPDATE_SCRIPT}')
+
 if __name__ == '__main__':
+    # Speichern Sie die aktuelle Version in der Version-Datei
+    with open(LOCAL_VERSION_FILE, 'w') as file:
+        file.write(CURRENT_VERSION)
+
     app = QApplication(sys.argv)
     window = Browser()
     window.show()
